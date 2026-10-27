@@ -1,0 +1,231 @@
+/* Year range facet: a two-handle slider over a scale of years.
+   Set these on .year-range-facet (or any parent) to match your theme. */
+
+.year-range-facet {
+  --year-range-thumb: 22px;
+  --year-range-accent: #1f2937;
+  --year-range-on-accent: #fff;
+  --year-range-thumb-background: #fff;
+  --year-range-rail: color-mix(
+    in srgb,
+    var(--year-range-accent) 18%,
+    transparent
+  );
+}
+
+.year-range-facet .year-range-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.block.search .facets .year-range-facet h4.header {
+  margin-bottom: 0;
+}
+
+.year-range-facet .year-range-summary {
+  color: var(--year-range-accent);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The slider and scale are inset by half a thumb on each side, so the
+   percentages line up with the centres of the native range thumbs. The
+   inputs reach back out to the full width. */
+.year-range-facet .year-range-slider {
+  position: relative;
+  height: 64px;
+  margin: 0 calc(var(--year-range-thumb) / 2);
+}
+
+.year-range-facet .year-range-track {
+  position: absolute;
+  right: 0;
+  bottom: 13px;
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--year-range-rail);
+}
+
+.year-range-facet .year-range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--year-range-start);
+  width: calc(var(--year-range-end) - var(--year-range-start));
+  border-radius: 3px;
+  background: var(--year-range-accent);
+}
+
+.year-range-facet .year-range-bubble {
+  position: absolute;
+  top: 0;
+  padding: 3px 10px;
+  border-radius: 50px;
+  background: var(--year-range-accent);
+  color: var(--year-range-on-accent);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 18px;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.year-range-facet .year-range-bubble::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  border: 5px solid transparent;
+  border-top-color: var(--year-range-accent);
+  content: "";
+  transform: translateX(-50%);
+}
+
+/* Two native range inputs stacked on the track. Only their thumbs take
+   pointer events, so either can be grabbed wherever they sit. */
+.year-range-facet .year-range-input {
+  position: absolute;
+  bottom: 5px;
+  left: calc(var(--year-range-thumb) / -2);
+  width: calc(100% + var(--year-range-thumb));
+  height: var(--year-range-thumb);
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.year-range-facet .year-range-input.active {
+  z-index: 1;
+}
+
+.year-range-facet .year-range-input:focus {
+  outline: none;
+}
+
+.year-range-facet .year-range-input::-webkit-slider-runnable-track {
+  height: var(--year-range-thumb);
+  background: transparent;
+}
+
+.year-range-facet .year-range-input::-moz-range-track {
+  height: var(--year-range-thumb);
+  background: transparent;
+}
+
+.year-range-facet .year-range-input::-webkit-slider-thumb {
+  width: var(--year-range-thumb);
+  height: var(--year-range-thumb);
+  box-sizing: border-box;
+  border: 3px solid var(--year-range-accent);
+  border-radius: 50%;
+  appearance: none;
+  background: var(--year-range-thumb-background);
+  box-shadow: 0 1px 4px
+    color-mix(in srgb, var(--year-range-accent) 30%, transparent);
+  cursor: grab;
+  pointer-events: auto;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.year-range-facet .year-range-input::-moz-range-thumb {
+  width: var(--year-range-thumb);
+  height: var(--year-range-thumb);
+  box-sizing: border-box;
+  border: 3px solid var(--year-range-accent);
+  border-radius: 50%;
+  background: var(--year-range-thumb-background);
+  box-shadow: 0 1px 4px
+    color-mix(in srgb, var(--year-range-accent) 30%, transparent);
+  cursor: grab;
+  pointer-events: auto;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.year-range-facet .year-range-input:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.year-range-facet .year-range-input:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.year-range-facet .year-range-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px
+    color-mix(in srgb, var(--year-range-accent) 25%, transparent);
+}
+
+.year-range-facet .year-range-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px
+    color-mix(in srgb, var(--year-range-accent) 25%, transparent);
+}
+
+.year-range-facet .year-range-input:disabled::-webkit-slider-thumb {
+  cursor: default;
+}
+
+.year-range-facet .year-range-input:disabled::-moz-range-thumb {
+  cursor: default;
+}
+
+/* One tick per year, with a label under some of them. */
+.year-range-facet .year-range-scale {
+  position: relative;
+  height: 30px;
+  margin: 2px calc(var(--year-range-thumb) / 2) 0;
+}
+
+.year-range-facet .year-range-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 5px;
+  background: var(--year-range-rail);
+  transform: translateX(-50%);
+}
+
+.year-range-facet .year-range-tick.labelled {
+  height: 8px;
+}
+
+.year-range-facet .year-range-tick.in-range {
+  background: var(--year-range-accent);
+}
+
+.year-range-facet .year-range-label {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  color: var(--year-range-accent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  opacity: 0.6;
+  transform: translateX(-50%);
+}
+
+.year-range-facet .year-range-tick.in-range .year-range-label {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Kept apart: a browser drops a whole rule over the other's prefix. */
+  .year-range-facet .year-range-input::-webkit-slider-thumb {
+    transition: none;
+  }
+
+  .year-range-facet .year-range-input::-moz-range-thumb {
+    transition: none;
+  }
+}
