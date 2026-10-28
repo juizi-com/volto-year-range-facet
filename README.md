@@ -8,7 +8,8 @@ handles to, say, 2024 and 2025 to show only items from those two years.
   latest year in the search block's results, so it never shows empty years
   and grows by itself when newer or older content is added.
 - **Whole years.** Each handle snaps to a year, and a bubble above it shows
-  which one. Ticks mark every year, with labels spaced so they never crowd.
+  which one. Labels sit on round years (2000, 2010, 2020) spaced to fit the
+  facet's width, so a scale covering decades stays readable in a sidebar.
 - **Open ends.** A handle left at either end of the scale leaves that side of
   the filter open, so items published after the page loaded aren't lost off
   the right end. Both handles at the ends means no filter at all.
@@ -32,7 +33,7 @@ nothing extra to install.
 | ------------------------- | -------------------------------------------------------------------------- |
 | `src/YearRangeFacet.jsx`  | The facet, its scale and query, and the entry for the active filter list   |
 | `src/YearRangeFacet.css`  | Its styles, with colour tokens for matching your theme                     |
-| `src/YearRangeFacet.test.jsx` | Jest tests for the query, reading the scale, the delayed search and restoring a range from the URL |
+| `src/YearRangeFacet.test.jsx` | Jest tests for the query, reading the scale, label and tick spacing, the Scale interval setting, the delayed search and restoring a range from the URL |
 
 ## Where it goes
 
@@ -60,6 +61,7 @@ const applyConfig = (config) => {
   Object.assign(dateRangeFacet, {
     title: 'Year range',
     view: YearRangeFacet,
+    schemaEnhancer: YearRangeFacet.schemaEnhancer,
     stateToValue: YearRangeFacet.stateToValue,
     valueToQuery: YearRangeFacet.valueToQuery,
     filterListComponent: YearRangeFacetFilterListEntry,
@@ -82,6 +84,7 @@ config.blocks.blocksConfig.search.extensions.facetWidgets.types.push({
   title: 'Year range',
   view: YearRangeFacet,
   isDefault: false,
+  schemaEnhancer: YearRangeFacet.schemaEnhancer,
   stateToValue: YearRangeFacet.stateToValue,
   valueToQuery: YearRangeFacet.valueToQuery,
   filterListComponent: YearRangeFacetFilterListEntry,
@@ -94,7 +97,7 @@ config.blocks.blocksConfig.search.extensions.facetWidgets.types.push({
 
 ## The scale
 
-There's nothing for editors to set. When the facet loads, it runs two
+Editors don't set the scale's ends. When the facet loads, it runs two
 one-item searches with the search block's own query, before any filter is
 picked: one sorted oldest first on the facet's field and one newest first.
 Their years become the ends of the slider. A track without handles holds the
@@ -117,6 +120,59 @@ component and pass the block's query to each facet widget:
   ...
 />
 ```
+
+## Labels and ticks
+
+Labels sit on multiples of an interval of 1, 2, 5, 10, 20, 25, 50 or 100
+years, so they read as round years. The facet measures its own width and
+uses the smallest interval that leaves each label about 45px, so a narrow
+sidebar gets a coarser interval than a full-width column, and it adjusts
+when the layout changes. Ticks thin out with the labels so they stay at
+least 6px apart. The first and last year keep a label only when it won't
+crowd a round one, since the bubbles over the handles already show the
+years picked. The handles always move one year at a time.
+
+For example, in a sidebar about 250px wide:
+
+| Scale        | Labels                           | Ticks        |
+| ------------ | -------------------------------- | ------------ |
+| 2020 – 2025  | every year                       | every year   |
+| 2015 – 2026  | 2016, 2018 … 2026                | every year   |
+| 1994 – 2026  | 1994, 2000, 2010, 2020, 2026     | every year   |
+| 1950 – 2026  | 1960, 1980, 2000, 2020           | every 2 years |
+
+### Scale interval
+
+Each facet has an optional **Scale interval** setting, under the facet
+type, to fix the labels at every 1, 2, 5, 10 or 25 years. Left empty, the
+scale fits itself. When the chosen interval's labels won't fit the width,
+the facet uses the next wider interval so labels never overlap. Facets saved
+before the setting existed have no value, so they keep the automatic scale.
+
+The setting comes from `YearRangeFacet.schemaEnhancer`, registered with the
+facet type as shown above.
+
+#### With Volto Light Theme
+
+Volto Light Theme replaces the `object_list` widget that holds a search
+block's facets. Its version reads `schemaEnhancer` and ignores Volto's
+`schemaExtender`, so no facet type can add its own settings and Scale
+interval won't appear. To fix it, shadow Volto's
+`components/manage/Blocks/Search/schema.js` and have the `facets` field set
+both:
+
+```js
+facets: {
+  title: intl.formatMessage(messages.facets),
+  widget: 'object_list',
+  schema: FacetSchema({ intl }),
+  schemaExtender: enhanceSchema,
+  schemaEnhancer: ({ schema, formData }) => enhanceSchema(schema, formData),
+},
+```
+
+This also brings back Volto's Multiple choices option on Select and
+Checkbox facets, which goes missing for the same reason.
 
 ## How it works
 
