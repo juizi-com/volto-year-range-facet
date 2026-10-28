@@ -156,18 +156,69 @@ const yearsToValue = ([start, end], min, max) => {
   ];
 };
 
-// Which years get a label under the scale: every one when they fit, else a
-// regular step that always includes both ends.
-const labelledYears = (min, max) => {
-  const span = max - min;
-  const step = span <= 8 ? 1 : Math.ceil(span / 6);
-  const years = new Set([min, max]);
-  for (let y = min; y < max; y += step) years.add(y);
-  // Drop a label that would crowd the last one.
-  if (step > 1 && (max - min) % step !== 0 && (max - min) % step < step / 2) {
-    years.delete(max - ((max - min) % step));
+// Years between labels on the scale, smallest first. Labels sit on multiples
+// of the step, so they read as round years (2000, 2010, 2020).
+const STEPS = [1, 2, 5, 10, 20, 25, 50, 100];
+
+// The room each label needs in pixels, so labels never touch.
+const LABEL_ROOM = 45;
+
+// The closest two ticks may sit in pixels.
+const TICK_ROOM = 6;
+
+// The scale's width until it's measured, about that of a sidebar facet.
+const DEFAULT_WIDTH = 250;
+
+const multiplesOf = (step, min, max) => {
+  const years = [];
+  for (let y = Math.ceil(min / step) * step; y <= max; y += step) {
+    years.push(y);
   }
   return years;
+};
+
+// Which years under the slider get a tick and which a label. The label step
+// is the editor's interval, or the smallest step whose labels fit the width;
+// an interval whose labels won't fit moves up to a wider one. Ticks use the
+// smallest step that divides it and leaves them room. The first and last
+// year get a label too, unless it would crowd a round one.
+export const scaleOf = (min, max, width, interval) => {
+  const perYear = width / Math.max(max - min, 1);
+  const fits = Math.floor(width / LABEL_ROOM) + 1;
+  const step =
+    STEPS.find(
+      (s) => s >= (interval || 1) && multiplesOf(s, min, max).length <= fits,
+    ) ?? STEPS[STEPS.length - 1];
+  const tickStep =
+    STEPS.find((s) => step % s === 0 && s * perYear >= TICK_ROOM) ?? step;
+
+  const labels = new Set(multiplesOf(step, min, max));
+  [min, max].forEach((end) => {
+    const clear = [...labels].every(
+      (y) => y === end || Math.abs(y - end) * perYear >= LABEL_ROOM,
+    );
+    if (clear) labels.add(end);
+  });
+  const ticks = [...new Set([...multiplesOf(tickStep, min, max), ...labels])];
+  return { ticks: ticks.sort((a, b) => a - b), labels };
+};
+
+// The width of the element the returned ref is set on, kept up to date as
+// the layout changes. Null until measured.
+const useWidth = () => {
+  const [node, setNode] = useState(null);
+  const [width, setWidth] = useState(null);
+  useEffect(() => {
+    if (!node) return;
+    setWidth(node.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) =>
+      setWidth(entry.contentRect.width),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [setNode, width];
 };
 
 const describe = ([start, end]) =>
@@ -195,6 +246,7 @@ const YearRangeFacet = (props) => {
   // still be pulled apart.
   const [active, setActive] = useState('end');
   const timer = useRef(null);
+  const [scaleRef, width] = useWidth();
 
   const valueKey = JSON.stringify(value);
   useEffect(() => {
@@ -224,7 +276,7 @@ const YearRangeFacet = (props) => {
         <div className="year-range-slider" aria-hidden="true">
           <div className="year-range-track" />
         </div>
-        <div className="year-range-scale" aria-hidden="true" />
+        <div className="year-range-scale" aria-hidden="true" ref={scaleRef} />
       </div>
     );
   }
@@ -232,9 +284,12 @@ const YearRangeFacet = (props) => {
   const [start, end] = years;
   const span = Math.max(max - min, 1);
   const pct = (y) => ((y - min) / span) * 100;
-  const labels = labelledYears(min, max);
-  const ticks = [];
-  for (let y = min; y <= max; y++) ticks.push(y);
+  const { ticks, labels } = scaleOf(
+    min,
+    max,
+    width || DEFAULT_WIDTH,
+    toInt(facet?.scaleInterval),
+  );
 
   // Bubbles close enough to overlap merge into one over the middle.
   const merged = (end - start) / span < 0.2;
@@ -310,7 +365,7 @@ const YearRangeFacet = (props) => {
           onChange={(e) => update([start, Math.max(+e.target.value, start)])}
         />
       </div>
-      <div className="year-range-scale" aria-hidden="true">
+      <div className="year-range-scale" aria-hidden="true" ref={scaleRef}>
         {ticks.map((y) => (
           <span
             key={y}
@@ -325,6 +380,26 @@ const YearRangeFacet = (props) => {
       </div>
     </div>
   );
+};
+
+// Volto passes the enhancer no intl, so the field labels stay in English like
+// the rest of the facet settings.
+YearRangeFacet.schemaEnhancer = ({ schema }) => {
+  const pos = schema.fieldsets[0].fields.indexOf('type') + 1;
+  schema.fieldsets[0].fields.splice(pos, 0, 'scaleInterval');
+  schema.properties.scaleInterval = {
+    title: 'Scale interval',
+    description:
+      'Years between the labels under the slider. Leave empty to fit as many as there is room for. When the labels would not fit, the next wider interval is used.',
+    choices: [
+      ['1', 'Every year'],
+      ['2', 'Every 2 years'],
+      ['5', 'Every 5 years'],
+      ['10', 'Every 10 years'],
+      ['25', 'Every 25 years'],
+    ],
+  };
+  return schema;
 };
 
 YearRangeFacet.stateToValue = ({ selectedValue }) =>

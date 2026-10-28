@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Provider } from 'react-intl-redux';
 import configureStore from 'redux-mock-store';
-import YearRangeFacet from './YearRangeFacet';
+import YearRangeFacet, { scaleOf } from './YearRangeFacet';
 
 const mockStore = configureStore();
 
@@ -137,5 +137,80 @@ describe('YearRangeFacet', () => {
   it('reads a range restored from the URL back onto the scale', () => {
     renderFacet({ value: ['1970-01-02', '2023-12-31 23:59:59'] });
     expect(screen.getByText('2020 – 2023', { selector: 'span' })).toBeTruthy();
+  });
+
+  it('labels every year in a short range', () => {
+    const { ticks, labels } = scaleOf(2020, 2025, 250);
+    expect([...labels].sort()).toEqual([2020, 2021, 2022, 2023, 2024, 2025]);
+    expect(ticks).toEqual([2020, 2021, 2022, 2023, 2024, 2025]);
+  });
+
+  it('labels round years in a long range, keeping ends with room', () => {
+    const { ticks, labels } = scaleOf(1994, 2026, 250);
+    expect([...labels].sort()).toEqual([1994, 2000, 2010, 2020, 2026]);
+    expect(ticks).toHaveLength(33);
+  });
+
+  it('drops an end label that would crowd a round one', () => {
+    const { labels } = scaleOf(2015, 2026, 250);
+    expect([...labels].sort()).toEqual([2016, 2018, 2020, 2022, 2024, 2026]);
+  });
+
+  it('thins the ticks when years sit too close', () => {
+    const { ticks } = scaleOf(1950, 2026, 250);
+    expect(ticks).toHaveLength(39);
+    expect(ticks.every((y) => y % 2 === 0)).toBe(true);
+  });
+
+  it('fits more labels into a wider scale', () => {
+    expect(scaleOf(1994, 2026, 250).labels.has(2005)).toBe(false);
+    expect(scaleOf(1994, 2026, 600).labels.has(2005)).toBe(true);
+  });
+
+  it("uses the editor's interval, widening it when the labels won't fit", () => {
+    expect([...scaleOf(2020, 2025, 250, 2).labels].sort()).toEqual([
+      2020, 2022, 2024, 2025,
+    ]);
+    expect(scaleOf(1994, 2026, 250, 1).labels.has(2005)).toBe(false);
+  });
+
+  it('adds the scale interval to the facet settings', () => {
+    const schema = YearRangeFacet.schemaEnhancer({
+      schema: {
+        fieldsets: [{ fields: ['title', 'field', 'type', 'hidden'] }],
+        properties: {},
+      },
+    });
+    expect(schema.fieldsets[0].fields).toEqual([
+      'title',
+      'field',
+      'type',
+      'scaleInterval',
+      'hidden',
+    ]);
+    expect(schema.properties.scaleInterval.choices[0]).toEqual([
+      '1',
+      'Every year',
+    ]);
+  });
+
+  it('applies the scale interval set on the facet', () => {
+    const { container } = render(
+      <Provider
+        store={makeStore({
+          'year-range-f1-first': loaded('2014-03-01T00:00:00+00:00'),
+          'year-range-f1-last': loaded('2025-11-12T00:00:00+00:00'),
+        })}
+      >
+        <YearRangeFacet
+          facet={{ ...facet, scaleInterval: '5' }}
+          value={[null, null]}
+        />
+      </Provider>,
+    );
+    const labels = [...container.querySelectorAll('.year-range-label')].map(
+      (l) => l.textContent,
+    );
+    expect(labels).toEqual(['2015', '2020', '2025']);
   });
 });
